@@ -1,3 +1,8 @@
+import tensorflow as tf
+import pandas as pd
+import os
+import json
+
 from keras import backend as K
 from keras.models import Model
 from keras.utils import generic_utils
@@ -24,7 +29,7 @@ from keras import initializers, regularizers
 class RoiPoolingConv(Layer):
     def __init__(self, pool_size, num_rois, **kwargs):
 
-        self.dim_ordering = K.image_dim_ordering()
+        self.dim_ordering = K.image_data_format()
         self.pool_size = pool_size
         self.num_rois = num_rois
 
@@ -63,7 +68,7 @@ class RoiPoolingConv(Layer):
             h = K.cast(h, 'int32')
 
             # Resized roi of the image to pooling size (7x7)
-            rs = tf.image.resize_images(img[:, y:y+h, x:x+w, :], (self.pool_size, self.pool_size))
+            rs = tf.image.resize(img[:, y:y+h, x:x+w, :], (self.pool_size, self.pool_size))
             outputs.append(rs)
                 
 

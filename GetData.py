@@ -122,10 +122,14 @@ def createDataset(max_per_class = 0):
     all_data = []
     for key in all_imgs:
         all_data.append(all_imgs[key])
+        
+    classes_count['bg'] = 0
+    class_mapping['bg'] = indexClass 
 
     print("classess count = \t",classes_count)
     print("classess mapping = \t",class_mapping)
     print("All image = ", all_data)
+    
     
     allDataFile = os.path.join(os.getcwd(), "JsonData", "ALL_DATA.json")
     with open(allDataFile, 'w') as json_file:
@@ -176,4 +180,4 @@ def test():
     plt.show()
     
     
-test()
+# test()

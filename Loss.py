@@ -1,3 +1,8 @@
+import tensorflow as tf
+import pandas as pd
+import os
+import json
+
 
 from keras import backend as K
 from keras.optimizers import Adam, SGD, RMSprop
@@ -12,6 +17,16 @@ from keras.models import Model
 from keras.utils import generic_utils
 from keras.engine import Layer, InputSpec
 from keras import initializers, regularizers
+
+
+
+lambda_rpn_regr = 1.0
+lambda_rpn_class = 1.0
+
+lambda_cls_regr = 1.0
+lambda_cls_class = 1.0
+
+epsilon = 1e-4
 
 # """Loss function for rpn regression
 # Args:
