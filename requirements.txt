@@ -1,0 +1,6 @@
+opencv_python==4.4.0.46
+scipy==1.5.4
+tensorflow==2.4.1
+numpy==1.19.5
+hdf5storage==0.1.17
+tqdm==4.60.0
