@@ -1,3 +1,4 @@
 DATASET/
 /.tmp.drivedownload
-/Weight
+Weight/
+model/
