@@ -55,6 +55,9 @@ def createDataset(max_per_class = 0):
         for data in dataset:
             
             curdata = dataset[data] #current data
+            if len(curdata['ground_truth']) == 0:
+                print("Doesnt has ground truth")
+                continue
             
             image = cv2.imread(curdata['file'])
             size = image.shape
@@ -121,7 +124,8 @@ def createDataset(max_per_class = 0):
         
     all_data = []
     for key in all_imgs:
-        all_data.append(all_imgs[key])
+        if len(all_imgs[key]['bboxes']) != 0:
+            all_data.append(all_imgs[key])
         
     classes_count['bg'] = 0
     class_mapping['bg'] = indexClass 
