@@ -95,6 +95,6 @@ def getAFLW(NFile = 100):
     return 0
 
 
-if __name__ == '__main__':
-    getMafa(0)
-    getAFLW(0)
+# if __name__ == '__main__':
+#     getMafa(0)
+#     getAFLW(0)

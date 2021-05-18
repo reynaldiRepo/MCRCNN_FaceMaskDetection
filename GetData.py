@@ -152,7 +152,7 @@ def createDataset(max_per_class = 0):
     
     return all_data, classes_count, class_mapping
 
-createDataset(10)
+# createDataset(2000)
 
 def get_data():
     allDataFile = os.path.join(os.getcwd(), "JsonData", "ALL_DATA.json")
@@ -184,4 +184,11 @@ def test():
     plt.show()
     
     
+def GetImageByIndex(index=0):
+    file = open(os.path.join(os.getcwd(), "JsonData", "ALL_DATA.json"), "r")
+    data = json.load(file)
+    file.close()
+    return data[index]
+    
 # test()
+# print(GetImageByIndex())
