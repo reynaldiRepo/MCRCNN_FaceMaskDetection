@@ -610,6 +610,7 @@ def rpn_to_roi(rpn_layer, regr_layer, C, dim_ordering, use_regr=True, max_boxes=
     # Might be (4, 18, 25, 18) if resized image is 400 width and 300
     # A is the coordinates for 9 anchors for every point in the feature map 
     # => all 18x25x9=4050 anchors cooridnates
+    # 
     A = np.zeros((4, rpn_layer.shape[1], rpn_layer.shape[2], rpn_layer.shape[3]))
 
     for anchor_size in anchor_sizes:
@@ -695,8 +696,6 @@ def rpn_to_roi(rpn_layer, regr_layer, C, dim_ordering, use_regr=True, max_boxes=
 #     debug_img: show image for debug
 #     num_pos: show number of positive anchors for debug
 # """
-
-
 def getImage(img_data):
 	image_data = copy.deepcopy(img_data)
 	img = cv2.imread(image_data['filepath'])
@@ -939,7 +938,7 @@ def train():
     model_rpn.compile(optimizer=optimizer, loss=[rpn_loss_cls(num_anchors), rpn_loss_regr(num_anchors)])
     model_classifier.compile(optimizer=optimizer_classifier, loss=[class_loss_cls, class_loss_regr(len(classes_count)-1)], metrics={'dense_class_{}'.format(len(classes_count)): 'accuracy'})
     model_all.compile(optimizer='sgd', loss='mae')
-
+    # model_rpn.summary()
     # Training setting
     total_epochs = len(record_df)
     r_epochs = len(record_df)
@@ -1206,8 +1205,9 @@ def test():
     print(class_mapping)
     class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
     
-    filepath = GetImageByIndex(0)
-    filepath = filepath['filepath']
+    # filepath = GetImageByIndex(0)
+    # filepath = filepath['filepath']
+    filepath = "C:\\Reynaldi\\DATASET\\AFLW\\image00054.jpg"
     # todo add image from json data
     img = cv2.imread(filepath)
     X, ratio = format_img(img, C)
@@ -1218,15 +1218,46 @@ def test():
     [Y1, Y2, F] = model_rpn.predict(X)
     # Get bboxes by applying NMS 
     # R.shape = (300, 4)
-    R = rpn_to_roi(Y1, Y2, C, K.image_data_format(), overlap_thresh=0.7)
+    print(Y1.shape)
+    print(Y2.shape)
+    print(F.shape)
+    R = rpn_to_roi(Y1, Y2, C, K.image_data_format(), overlap_thresh=0.7) #get bounding box location with shape from rpn
     # convert from (x1,y1,x2,y2) to (x,y,w,h)
     R[:, 2] -= R[:, 0]
     R[:, 3] -= R[:, 1]
+    #drawing rpn module
+    #bboxes[cls_name].append([C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)])
+    img_rpn = img.copy()
+    for box in R:
+        x1 = box[0] * C.rpn_stride
+        x2 = (box[0] + box[2]) * C.rpn_stride
+        y1 = box[1] * C.rpn_stride
+        y2 = (box[1] + box[3]) * C.rpn_stride
+        (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
+        cv2.rectangle(img_rpn, (real_x1,real_y1), (real_x2,real_y2), (255,0,0), 3)
+        
+        
+    plt.figure(figsize=(10,10))
+    plt.grid()
+    plt.imshow(cv2.cvtColor(img_rpn,cv2.COLOR_BGR2RGB))
+    plt.show()
+    del img_rpn
+        
+        
+        
+    
+    
     # apply the spatial pyramid pooling to the proposed regions
     bboxes = {}
     probs = {}
+    print(R.shape)
+    print(C.num_rois)
+    print(R.shape[0]//C.num_rois + 1)
+    print(R)
     for jk in range(R.shape[0]//C.num_rois + 1):
         ROIs = np.expand_dims(R[C.num_rois*jk:C.num_rois*(jk+1), :], axis=0)
+        print("============================================")
+        print(ROIs)
         if ROIs.shape[1] == 0:
             break
 
@@ -1244,7 +1275,7 @@ def test():
         # Calculate bboxes coordinates on resized image
         bbox_threshold = 0.7
         for ii in range(P_cls.shape[1]):
-            # Ignore 'bg' class
+            # Ignore 'bg' class and probability under 0.7
             if np.max(P_cls[0, ii, :]) < bbox_threshold or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
                 continue
 
@@ -1268,9 +1299,25 @@ def test():
                 pass
             bboxes[cls_name].append([C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)])
             probs[cls_name].append(np.max(P_cls[0, ii, :]))
+            
+    img_rpn = img.copy()
+    for boxs in bboxes:
+        boxes = bboxes[boxs]
+        for box in boxes:
+            x1 = box[0]
+            x2 = (box[2])
+            y1 = box[1]
+            y2 = (box[3])
+            (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
+            cv2.rectangle(img_rpn, (real_x1,real_y1), (real_x2,real_y2), (255,0,0), 3)
+    plt.figure(figsize=(10,10))
+    plt.grid()
+    plt.imshow(cv2.cvtColor(img_rpn,cv2.COLOR_BGR2RGB))
+    plt.show()
+    del img_rpn
 
     all_dets = []
-
+    print(bboxes)
     for key in bboxes:
         bbox = np.array(bboxes[key])
         new_boxes, new_probs = non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.2)
