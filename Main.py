@@ -766,7 +766,8 @@ def train():
     C.num_rois = num_rois
     C.base_net_weights = base_weight_path
 
-    #--------------------------------------------------------#
+    #--------------------
+    # ------------------------------------#
     # This step will spend some time to load the data        #
     #--------------------------------------------------------#
     st = time.time()
@@ -1167,7 +1168,7 @@ def get_real_coordinates(ratio, x1, y1, x2, y2):
     
 def test():
     st = time.time()
-    config_output_filename = os.path.join(os.getcwd(), 'model_config.pickle')
+    config_output_filename = os.path.join(os.getcwd(), 'model/model_v1_config.pickle')
     with open(config_output_filename, 'rb') as f_in:
 	    C = pickle.load(f_in)
     num_features = 512
@@ -1189,7 +1190,7 @@ def test():
     classifier = classifier_layer(feature_map_input, roi_input, C.num_rois, nb_classes=len(C.class_mapping))
 
     model_rpn = Model(img_input, rpn_layers)
-    model_classifier_only = Model([feature_map_input, roi_input], classifier)
+    # model_classifier_only = Model([feature_map_input, roi_input], classifier)
 
     model_classifier = Model([feature_map_input, roi_input], classifier)
 
@@ -1228,6 +1229,7 @@ def test():
     #drawing rpn module
     #bboxes[cls_name].append([C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)])
     img_rpn = img.copy()
+    index = 0
     for box in R:
         x1 = box[0] * C.rpn_stride
         x2 = (box[0] + box[2]) * C.rpn_stride
@@ -1235,6 +1237,9 @@ def test():
         y2 = (box[1] + box[3]) * C.rpn_stride
         (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
         cv2.rectangle(img_rpn, (real_x1,real_y1), (real_x2,real_y2), (255,0,0), 3)
+        index += 1
+        if index == 10:
+            break
         
         
     plt.figure(figsize=(10,10))
@@ -1270,7 +1275,7 @@ def test():
             ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
             ROIs = ROIs_padded
 
-        [P_cls, P_regr] = model_classifier_only.predict([F, ROIs])
+        [P_cls, P_regr] = model_classifier.predict([F, ROIs])
 
         # Calculate bboxes coordinates on resized image
         bbox_threshold = 0.7
