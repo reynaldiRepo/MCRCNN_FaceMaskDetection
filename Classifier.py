@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import json
 
-
+import sys
 from keras import backend as K
 from keras.optimizers import Adam, SGD, RMSprop
 from keras.layers import Flatten, Dense, Input, Conv2D, MaxPooling2D, Dropout
@@ -58,3 +58,20 @@ def classifier_layer(base_layers, input_rois, num_rois, nb_classes = 4):
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
 
     return [out_class, out_regr]
+
+
+
+# def test():
+#     input_shape_features = (None, None, 512)
+#     feature_map_input = Input(shape=input_shape_features)
+#     roi_input = Input(shape=(4, 4))
+#     classifier = classifier_layer(feature_map_input, roi_input , 4, nb_classes=3)
+#     model_classifier = Model([feature_map_input, roi_input], classifier)
+#     model_classifier.compile(optimizer='sgd', loss='mse')
+#     model_classifier.summary()
+#     with open('debug.txt','w') as fh:
+#         # Pass the file handle in as a lambda function to make it callable
+#         model_classifier.summary(print_fn=lambda x: fh.write(x + '\n'))
+# test()
+    
+    

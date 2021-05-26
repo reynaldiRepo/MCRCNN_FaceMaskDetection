@@ -18,6 +18,8 @@ from keras.utils import generic_utils
 from keras.engine import Layer, InputSpec
 from keras import initializers, regularizers
 
+from RoiPolling import RoiPoolingConv
+
 from VGG import nn_base
 
 def MCFE(base_layer, num_fitur = 512):
@@ -32,7 +34,7 @@ def MCFE(base_layer, num_fitur = 512):
     d3 = Conv2D(n_dilated, (3,3), padding='same', dilation_rate=(5,5), activation="relu", name='atrous_conv3')(base_layer)
     d4 = Conv2D(n_dilated, (3,3), padding='same', dilation_rate=(7,7), activation="relu", name='atrous_conv4')(base_layer)
     
-    mcfe = Concatenate(axis=2, name='concat_mcfe')([d1, d2, d3,d4])
+    mcfe = Concatenate(axis=3, name='concat_mcfe')([d1, d2, d3,d4])
     
     return mcfe
 
@@ -47,16 +49,16 @@ def DecoupledClassifier(base_layers, input_rois, num_rois, nb_classes = 4):
     # out_roi_pool.shape = (1, num_rois, channels, pool_size, pool_size)
     # num_rois (4) 7x7 roi pooling
     out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([MCFE_LAYER, input_rois])
-    dense_cls = TimeDistributed(Flatten(name='flatten'))(out_roi_pool)
+    flatten = TimeDistributed(Flatten(name='flatten'))(out_roi_pool)
     
     # Branch dense layer for classifier
-    dense_cls = TimeDistributed(Dense(4096, activation='relu', name='fc1'))(dense_cls)
+    dense_cls = TimeDistributed(Dense(4096, activation='relu', name='fc1'))(flatten)
     dense_cls = TimeDistributed(Dropout(0.5))(dense_cls)
     dense_cls = TimeDistributed(Dense(4096, activation='relu', name='fc2'))(dense_cls)
     dense_cls = TimeDistributed(Dropout(0.5))(dense_cls)
     
     # Branch dense layer for classifier
-    dense_reg = TimeDistributed(Dense(4096, activation='relu', name='fc3'))(dense_reg)
+    dense_reg = TimeDistributed(Dense(4096, activation='relu', name='fc3'))(flatten)
     dense_reg = TimeDistributed(Dropout(0.5))(dense_reg)
     dense_reg = TimeDistributed(Dense(4096, activation='relu', name='fc4'))(dense_reg)
     dense_reg = TimeDistributed(Dropout(0.5))(dense_reg)
@@ -69,5 +71,19 @@ def DecoupledClassifier(base_layers, input_rois, num_rois, nb_classes = 4):
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(dense_reg)
 
     return [out_class, out_regr]
+
+
+# def test():
+#     input_shape_features = (None, None, 512)
+#     feature_map_input = Input(shape=input_shape_features)
+#     roi_input = Input(shape=(4, 4))
+#     classifier = DecoupledClassifier(feature_map_input, roi_input , 4, nb_classes=3)
+#     model_classifier = Model([feature_map_input, roi_input], classifier)
+#     model_classifier.compile(optimizer='sgd', loss='mse')
+#     model_classifier.summary()
+#     with open('debug.txt','w') as fh:
+#         # Pass the file handle in as a lambda function to make it callable
+#         model_classifier.summary(print_fn=lambda x: fh.write(x + '\n'))
+# test()
     
     
