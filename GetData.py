@@ -60,6 +60,7 @@ def createDataset(max_per_class = 0):
                 continue
             
             image = cv2.imread(curdata['file'])
+            # print(curdata['file'])
             size = image.shape
             
             filename = curdata['file']
@@ -190,5 +191,90 @@ def GetImageByIndex(index=0):
     file.close()
     return data[index]
     
-# test()
-# print(GetImageByIndex())
+
+def createTest(numTrain = 2000, numTest = 2000):
+    mafa = open(os.path.join(os.getcwd(), "JsonData", "MafaTrain.json"), "r")
+    aflw = open(os.path.join(os.getcwd(), "JsonData", "AFLW.json"), "r")
+    mafa = json.load(mafa)
+    aflw = json.load(aflw)
+    classCounterExists ={
+        "1": 0,
+        "2": 0,
+        "0": 0,
+    }
+
+    classCounter = {
+        "1": 0,
+        "2": 0,
+        "0": 0,
+    }
+
+    
+    all_imgs = {}
+    dictData = {'MAFA':mafa, 'AFLW':aflw}
+    for dataset in dictData:
+        # print(dictData[dataset])
+        for data in dictData[dataset]:
+            datasetcur = dictData[dataset]
+            if dataset == "MAFA":
+                if classCounter["1"] == numTrain and classCounter["2"] == numTrain:
+                    print("mafa fullfiled")
+                    break;
+
+            if  dataset == "AFLW":
+                if classCounter["0"] == numTrain:
+                    print("aflw fullfiled")
+                    break;
+            
+
+            curData = datasetcur[data]
+            if len(curData['ground_truth']) == 0:
+                print("no ground truth")
+                continue
+            
+            image = cv2.imread(curData['file'])
+            # print(curData['file'])
+            size = image.shape
+            filename = curData['file']
+            all_imgs[filename] = {}
+            all_imgs[filename]['filepath'] = filename
+            all_imgs[filename]['width'] = size[1]
+            all_imgs[filename]['height'] = size[0]
+            all_imgs[filename]['bboxes'] = []
+            del image
+
+            for gt in curData['ground_truth']:
+                className = str(gt['CLASS'])
+                if classCounterExists[className] < numTrain :
+                    classCounterExists[className] += 1
+                    print("class ", className, "from training discoverd", classCounterExists[className])
+                    continue
+                
+                if classCounter[className]  == numTest:
+                    print("Skipping class, ", className, classCounter[className], " reach maximum number class", "on file ", curData['file'])
+                    continue 
+
+                classCounter[className] += 1        
+                x1 = int(gt['BOX']['X'])
+                x2 = int(gt['BOX']['X']) + int(gt['BOX']['W'])
+                y1 = int(gt['BOX']['Y'])
+                y2 = int(gt['BOX']['Y']) + int(gt['BOX']['H'])
+                all_imgs[filename]['bboxes'].append({'class': gt['CLASS'], 'x1': int(x1), 'x2': int(x2), 'y1': int(y1), 'y2': int(y2)})
+
+                        
+
+
+    all_data = []
+    for key in all_imgs:
+        if len(all_imgs[key]['bboxes']) != 0:
+            all_data.append(all_imgs[key])
+
+    DataTest = os.path.join(os.getcwd(), "JsonData", "TEST_DATA.json")
+    with open(DataTest, 'w') as json_file:
+        json.dump(all_data, json_file, indent=4)
+    json_file.close()
+    print("finish")
+    
+
+
+createTest()
