@@ -1507,6 +1507,9 @@ def test(type = "RCNN"):
     model_rpn.compile(optimizer='sgd', loss='mse')
     model_classifier.compile(optimizer='sgd', loss='mse')
     
+    model_rpn.summary()
+    model_classifier.summary()
+    
     class_mapping = C.class_mapping
     class_mapping = {v: k for k, v in class_mapping.items()}
     print(class_mapping)
@@ -1541,25 +1544,24 @@ def test(type = "RCNN"):
         R[:, 3] -= R[:, 1]
         print(R.shape)
 
-        #drawing rpn module
-        #bboxes[cls_name].append([C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)])
-        # img_rpn = img.copy()
-        # index = 0
-        # for box in R:
-        #     x1 = box[0] * C.rpn_stride
-        #     x2 = (box[0] + box[2]) * C.rpn_stride
-        #     y1 = box[1] * C.rpn_stride
-        #     y2 = (box[1] + box[3]) * C.rpn_stride
-        #     (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
-        #     cv2.rectangle(img_rpn, (real_x1,real_y1), (real_x2,real_y2), (255,0,0), 3)
-        #     index += 1
-        #     if index == 10:
-        #         break
-        # plt.figure(figsize=(10,10))
-        # plt.grid()
-        # plt.imshow(cv2.cvtColor(img_rpn,cv2.COLOR_BGR2RGB))
-        # plt.show()
-        # del img_rpn
+        # drawing rpn module
+        img_rpn = img.copy()
+        index = 0
+        for box in R:
+            x1 = box[0] * C.rpn_stride
+            x2 = (box[0] + box[2]) * C.rpn_stride
+            y1 = box[1] * C.rpn_stride
+            y2 = (box[1] + box[3]) * C.rpn_stride
+            (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
+            cv2.rectangle(img_rpn, (real_x1,real_y1), (real_x2,real_y2), (255,0,0), 3)
+            index += 1
+            if index == 10:
+                break
+        plt.figure(figsize=(10,10))
+        plt.grid()
+        plt.imshow(cv2.cvtColor(img_rpn,cv2.COLOR_BGR2RGB))
+        plt.show()
+        del img_rpn
 
 
         # apply the spatial pyramid pooling to the proposed regions
@@ -1609,9 +1611,13 @@ def test(type = "RCNN"):
                 probs[cls_name].append(np.max(P_cls[0, ii, :]))
 
         all_dets = []
+        
         for key in bboxes:
             bbox = np.array(bboxes[key])
+            print("Bboxes", bbox)
+            print("Probs Bboxes", probs[key])
             new_boxes, new_probs = non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.2)
+            print("new Bboxes", new_boxes, new_probs)
             for jk in range(new_boxes.shape[0]):
                 (x1, y1, x2, y2) = new_boxes[jk,:]
                 # Calculate real coordinates on original image
@@ -1638,6 +1644,162 @@ def test(type = "RCNN"):
         del img
 
 
-# trainMcRcnn()
-# test(type="MCRCNN")
-test(type="RCNN")
+def setupmodel(type="MRCNN"):
+    #rcnn model config
+    if (type == "MCRCNN"):
+        #MCRCNN model config
+        configpath = os.path.join(os.getcwd(), "model", "model_config_MCRCNN.pickle")
+    else:
+        configpath = os.path.join(os.getcwd(), "model", "model_v1_config.pickle")
+    config_output_filename = configpath
+    with open(config_output_filename, 'rb') as f_in:
+	    C = pickle.load(f_in)
+    num_features = 512
+    input_shape_img = (None, None, 3)
+    input_shape_features = (None, None, num_features)
+    img_input = Input(shape=input_shape_img)
+    roi_input = Input(shape=(C.num_rois, 4))
+    feature_map_input = Input(shape=input_shape_features)
+    # define the base network (VGG here, can be Resnet50, Inception, etc)
+    shared_layers = nn_base(img_input, trainable=True)
+    # define the RPN, built on the base layers
+    num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
+    rpn_layers = rpn_layer(shared_layers, num_anchors)
+    if (type == "MCRCNN"):
+        print("Load MCRCNN")
+        classifier = DecoupledClassifier(feature_map_input, roi_input, C.num_rois, nb_classes=len(C.class_mapping))
+    else:
+        # Classifier for RCNN
+        print("Load FRCNN")
+        classifier = classifier_layer(feature_map_input, roi_input, C.num_rois, nb_classes=len(C.class_mapping))
+
+    #Init Keras Model from spesific layer
+    model_rpn = Model(img_input, rpn_layers)
+    model_classifier = Model([feature_map_input, roi_input], classifier)
+
+    print('Loading weights from {}'.format(C.model_path))
+    model_rpn.load_weights(C.model_path, by_name=True)
+    model_classifier.load_weights(C.model_path, by_name=True)
+
+    model_rpn.compile(optimizer='sgd', loss='mse')
+    model_classifier.compile(optimizer='sgd', loss='mse')
+
+    model_rpn.summary()
+    model_classifier.summary()
+    
+    return C, model_rpn, model_classifier
+
+def map(model="MRCNN"):
+    # https://github.com/rafaelpadilla/Object-Detection-Metrics do something like this
+    C, model_rpn, model_classifier = setupmodel(model)
+
+    class_mapping = C.class_mapping
+    class_mapping = {v: k for k, v in class_mapping.items()}
+    print("Class Mapping : ", class_mapping)
+    # class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
+    class_to_color = {1: [ 255, 255,  0], 2: [ 0, 255, 0], 0: [255,  0, 0], 'bg': [255,  0, 255]}
+    print("Class Color : ", class_to_color)
+
+
+    fileTest = open(os.path.join(os.getcwd(), "JsonData", "TEST_DATA _LOCAL.json"), "r")
+    dataTest = json.load(fileTest)
+    fileTest.close()
+    indexImage = 0;
+    all_dets = {}
+    for im in dataTest:
+        st = time.time()
+        print(im)
+        # filepath = GetImageByIndex(0)
+        # filepath = filepath['filepath']
+        filepath = im['filepath']
+        # todo add image from json data
+        img = cv2.imread(filepath)
+        X, ratio = format_img(img, C)
+        X = np.transpose(X, (0, 2, 3, 1))
+        # get output layer Y1, Y2 from the RPN and the feature maps F
+        # Y1: y_rpn_cls
+        # Y2: y_rpn_regr
+        [Y1, Y2, F] = model_rpn.predict(X)
+        # Get bboxes by applying NMS 
+        # R.shape = (100, 4)
+        print(Y1.shape)
+        print(Y2.shape)
+        print(F.shape)
+        R = rpn_to_roi(Y1, Y2, C, K.image_data_format(), max_boxes=100 ,overlap_thresh=0.7) #get bounding box location with shape from rpn
+        # convert from (x1,y1,x2,y2) to (x,y,w,h)
+        R[:, 2] -= R[:, 0]
+        R[:, 3] -= R[:, 1]
+        print(R.shape)
+
+        # drawing rpn module
+
+
+        # apply the spatial pyramid pooling to the proposed regions
+        bboxes = {}
+        probs = {}
+        for jk in range(R.shape[0]//C.num_rois + 1):
+            ROIs = np.expand_dims(R[C.num_rois*jk:C.num_rois*(jk+1), :], axis=0)
+            if ROIs.shape[1] == 0:
+                break
+            if jk == R.shape[0]//C.num_rois:
+                #pad R
+                curr_shape = ROIs.shape
+                target_shape = (curr_shape[0],C.num_rois,curr_shape[2])
+                ROIs_padded = np.zeros(target_shape).astype(ROIs.dtype)
+                ROIs_padded[:, :curr_shape[1], :] = ROIs
+                ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
+                ROIs = ROIs_padded
+            [P_cls, P_regr] = model_classifier.predict([F, ROIs])
+            # Calculate bboxes coordinates on resized image
+            bbox_threshold = 0.7
+            max_box = 10
+            for ii in range(P_cls.shape[1]):
+                isValid = False
+                # Ignore 'bg' class and probability under 0.7
+                if np.max(P_cls[0, ii, :]) < bbox_threshold or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
+                    continue
+                else:
+                    isValid = True
+                    # print("Box Valid", np.max(P_cls[0, ii, :]))
+                    cls_name = class_mapping[np.argmax(P_cls[0, ii, :])]
+                    if cls_name not in bboxes:
+                        bboxes[cls_name] = []
+                        probs[cls_name] = []
+                    (x, y, w, h) = ROIs[0, ii, :]
+                cls_num = np.argmax(P_cls[0, ii, :])
+                try:
+                    (tx, ty, tw, th) = P_regr[0, ii, 4*cls_num:4*(cls_num+1)]
+                    tx /= C.classifier_regr_std[0]
+                    ty /= C.classifier_regr_std[1]
+                    tw /= C.classifier_regr_std[2]
+                    th /= C.classifier_regr_std[3]
+                    x, y, w, h = apply_regr(x, y, w, h, tx, ty, tw, th)
+                except:
+                    pass
+                bboxes[cls_name].append([C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)])
+                probs[cls_name].append(np.max(P_cls[0, ii, :]))
+        
+
+
+        for key in bboxes:
+            bbox = np.array(bboxes[key])
+            # print("Bboxes", bbox)
+            # print("Probs Bboxes", probs[key])
+            new_boxes, new_probs = non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.2)
+            # print("new Bboxes", new_boxes, new_probs)
+            for jk in range(new_boxes.shape[0]):
+                (x1, y1, x2, y2) = new_boxes[jk,:]
+                # Calculate real coordinates on original image
+                (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
+                if (all_dets.get(key, None) == None):
+                    all_dets[key] = [];
+                all_dets[key].append([indexImage,key,100*new_probs[jk],real_x1, real_y1, real_x2, real_y2])
+
+        print('Elapsed time = {}'.format(time.time() - st))  
+        print("Finishing Test Image - ", indexImage)
+        indexImage += 1
+        del img
+    print(all_dets)
+
+
+map("MCRCNN")
