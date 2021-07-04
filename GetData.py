@@ -192,9 +192,9 @@ def GetImageByIndex(index=0):
     return data[index]
     
 
-def createTest(numTrain = 2000, numTest = 2000):
-    mafa = open(os.path.join(os.getcwd(), "JsonData", "MafaTrain.json"), "r")
-    aflw = open(os.path.join(os.getcwd(), "JsonData", "AFLW.json"), "r")
+def createTest(numTrain = 2000, numTest = 200):
+    mafa = open(os.path.join(os.getcwd(), "JsonData", "MafaTrain_Local.json"), "r")
+    aflw = open(os.path.join(os.getcwd(), "JsonData", "AFLW_Local.json"), "r")
     mafa = json.load(mafa)
     aflw = json.load(aflw)
     classCounterExists ={
@@ -211,20 +211,20 @@ def createTest(numTrain = 2000, numTest = 2000):
 
     
     all_imgs = {}
-    dictData = {'MAFA':mafa, 'AFLW':aflw}
+    dictData = {'AFLW':aflw, 'MAFA':mafa}
     for dataset in dictData:
         # print(dictData[dataset])
         for data in dictData[dataset]:
             datasetcur = dictData[dataset]
-            if dataset == "MAFA":
-                if classCounter["1"] == numTrain and classCounter["2"] == numTrain:
-                    print("mafa fullfiled")
-                    break;
+            # if dataset == "MAFA":
+            #     if classCounter["1"] == numTrain and classCounter["2"] == numTrain:
+            #         print("mafa fullfiled")
+            #         break;
 
-            if  dataset == "AFLW":
-                if classCounter["0"] == numTrain:
-                    print("aflw fullfiled")
-                    break;
+            # if  dataset == "AFLW":
+            #     if classCounter["0"] == numTrain:
+            #         print("aflw fullfiled")
+            #         break;
             
 
             curData = datasetcur[data]
@@ -232,9 +232,16 @@ def createTest(numTrain = 2000, numTest = 2000):
                 print("no ground truth")
                 continue
             
-            image = cv2.imread(curData['file'])
+            try:
+                print(curData['file'])
+                image = cv2.imread(curData['file'])
+                size = image.shape
+            except Exception as e:
+                print(e)
+                continue
+            
             # print(curData['file'])
-            size = image.shape
+            
             filename = curData['file']
             all_imgs[filename] = {}
             all_imgs[filename]['filepath'] = filename
@@ -261,6 +268,17 @@ def createTest(numTrain = 2000, numTest = 2000):
                 y2 = int(gt['BOX']['Y']) + int(gt['BOX']['H'])
                 all_imgs[filename]['bboxes'].append({'class': gt['CLASS'], 'x1': int(x1), 'x2': int(x2), 'y1': int(y1), 'y2': int(y2)})
 
+
+            if dataset == "AFLW" :
+                if classCounter["0"] == numTest:
+                    print("finished get data")
+                    break
+
+            if dataset == "MAFA" :
+                if classCounter["1"] == numTest and classCounter["2"] == numTest:
+                    print("finished get data")
+                    break
+
                         
 
 
@@ -269,12 +287,9 @@ def createTest(numTrain = 2000, numTest = 2000):
         if len(all_imgs[key]['bboxes']) != 0:
             all_data.append(all_imgs[key])
 
-    DataTest = os.path.join(os.getcwd(), "JsonData", "TEST_DATA.json")
+    DataTest = os.path.join(os.getcwd(), "JsonData", "TEST_DATA_LOCAL.json")
     with open(DataTest, 'w') as json_file:
         json.dump(all_data, json_file, indent=4)
     json_file.close()
     print("finish")
     
-
-
-# createTest()

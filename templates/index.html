@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <title>MCRCNN Demo</title>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://getbootstrap.com/docs/4.0/examples/cover/cover.css">
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk="
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+    integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+    integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous">
+  </script>
+  <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body class="text-center">
+
+  <div class="d-flex h-100 p-3 mx-auto flex-column">
+    <header class="masthead mb-auto">
+      <div class="inner">
+        <h3 class="masthead-brand">MCRCNN DEMO</h3>
+        <nav class="nav nav-masthead justify-content-center">
+          <a class="nav-link active" href="#">Demo</a>
+          <a class="nav-link" href="#">About</a>
+          <a class="nav-link" href="#">Code</a>
+        </nav>
+      </div>
+    </header>
+
+    <main role="main" class="inner cover">
+      <div class="col-md-12 justify-content-center">
+        <div class="cam-container m-3 shadow text-center bg-dark ml-auto mr-auto"
+          style="width: fit-content;border-radius:20px;">
+          <video onplay="startInterval()" id="webcam-container" width="720" height="480" autoplay></video>
+        </div>
+        <canvas hidden id="canvas-capturer" width="360" height="240"></canvas>
+        <div class="col-md-12">
+          <button class="btn btn-light" id="start-video"><b>START</b></button>
+          <button class="btn btn-danger" id="stop-video" disabled><b>STOP</b></button>
+        </div>
+        <hr>
+      </div>
+    </main>
+
+    <footer class="mastfoot mt-auto">
+      <div class="inner">
+        <p>Present by - <a href="http://reynaldirepo.github.io/">@reynaldirepo.github.io</a></p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- for ws -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"
+    integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA=="
+    crossorigin="anonymous"></script>
+  <script type="text/javascript" charset="utf-8">
+    window.socket = io({
+      forceBase64:true
+    });
+    socket.on('connect', function () {
+      socket.emit('message', {
+        data: 'I\'m connected!'
+      });
+    });
+  </script>
+
+  <script>
+    var webcam = document.getElementById('webcam-container');
+    window.stream = "";
+    window.capturer = document.getElementById('canvas-capturer');
+    window.timefps = 2 // 2fps -- for avoid crash thread
+    window.isRecord = false;
+    window.loopInterval = null;
+
+
+    function snap() {
+      var context = capturer.getContext('2d');
+      context.drawImage(webcam, 0, 0, 360, 240);
+      return capturer.toDataURL()
+    }
+
+    function turnonwebcam() {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({
+          video: true
+        }).then(function (stream) {
+          webcam.srcObject = stream;
+          window.stream = stream;
+          webcam.play();
+        });
+      } else if (navigator.getUserMedia) { // Standard
+        navigator.getUserMedia({
+          video: true
+        }, function (stream) {
+          webcam.src = stream;
+          window.stream = stream;
+          webcam.play();
+        }, errBack);
+      } else if (navigator.webkitGetUserMedia) { // WebKit-prefixed
+        navigator.webkitGetUserMedia({
+          video: true
+        }, function (stream) {
+          webcam.src = window.webkitURL.createObjectURL(stream);
+          window.stream = stream;
+          webcam.play();
+        }, errBack);
+      } else if (navigator.mozGetUserMedia) { // Mozilla-prefixed
+        navigator.mozGetUserMedia({
+          video: true
+        }, function (stream) {
+          webcam.srcObject = stream;
+          window.stream = stream;
+          webcam.play();
+        }, errBack);
+      } else {
+        Swal.fire("error", "Doesnt Support Webcam", "error")
+      }
+    }
+    
+    window.startInterval = function(){
+        if(window.isRecord == false){
+          return;
+        }
+        window.loopInterval = setInterval(() => {
+            let dataURL = snap()
+            console.log(dataURL)
+            socket.emit('input', {data: dataURL})
+        }, 3000);
+    }
+
+    //turn of webcam
+    function turnoffwebcam() {
+      webcam.pause();
+      webcam.src = "";
+      window.stream.getTracks()[0].stop();
+      clearInterval(window.loopInterval)
+      console.log("Vid off");
+    }
+
+    $("#start-video").click(function(){
+        if (window.isRecord == true){
+          return
+        }
+        window.isRecord = true;
+        $(this).attr("disabled", "disabled")
+        $("#stop-video").removeAttr("disabled")
+        turnonwebcam();
+    }) 
+
+    $("#stop-video").click(function(){
+        window.isRecord = false;
+        clearInterval(window.loopInterval)
+        $(this).attr("disabled", "disabled")
+        $("#start-video").removeAttr("disabled")
+        turnoffwebcam();
+    })
+
+
+
+  </script>
+</body>
+
+</html>
