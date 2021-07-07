@@ -1682,9 +1682,9 @@ def setupmodel(type="MCRCNN", doCompile= False):
     print('Loading weights from {}'.format(C.model_path))
     model_rpn.load_weights(C.model_path, by_name=True)
     model_classifier.load_weights(C.model_path, by_name=True)
-
+    
+    model_rpn.compile(optimizer='sgd', loss='mse')
     if doCompile : 
-        model_rpn.compile(optimizer='sgd', loss='mse')
         model_classifier.compile(optimizer='sgd', loss='mse')
 
     model_rpn.summary()
@@ -1840,13 +1840,18 @@ def doPredict(C, model_rpn, model_classifier, img):
     # get output layer Y1, Y2 from the RPN and the feature maps F
     # Y1: y_rpn_cls
     # Y2: y_rpn_regr
+    stRPN = time.time()
     [Y1, Y2, F] = model_rpn.predict(X)
+    print("RPN TIME" ,time.time() - stRPN)
     # Get bboxes by applying NMS 
     # R.shape = (100, 4)
     # print(Y1.shape)
     # print(Y2.shape)
     # print(F.shape)
-    R = rpn_to_roi(Y1, Y2, C, K.image_data_format(), max_boxes=12 ,overlap_thresh=0.7) #get bounding box location with shape from rpn
+    stRPN_ROI = time.time()
+    R = rpn_to_roi(Y1, Y2, C, K.image_data_format(), max_boxes=8 ,overlap_thresh=0.7) #get bounding box location with shape from rpn
+    print("RPN_ROI TIME" ,time.time() - stRPN_ROI)
+
     # convert from (x1,y1,x2,y2) to (x,y,w,h)
     R[:, 2] -= R[:, 0]
     R[:, 3] -= R[:, 1]
@@ -1866,17 +1871,18 @@ def doPredict(C, model_rpn, model_classifier, img):
             ROIs_padded[:, :curr_shape[1], :] = ROIs
             ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
             ROIs = ROIs_padded
+
+        stClass = time.time()
         [P_cls, P_regr] = model_classifier.predict([F, ROIs])
+        print("Class TIME" ,time.time() - stClass)
+
         # Calculate bboxes coordinates on resized image
         bbox_threshold = 0.7
-        max_box = 10
         for ii in range(P_cls.shape[1]):
-            isValid = False
             # Ignore 'bg' class and probability under 0.7
             if np.max(P_cls[0, ii, :]) < bbox_threshold or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
                 continue
             else:
-                isValid = True
                 # print("Box Valid", np.max(P_cls[0, ii, :]))
                 cls_name = class_mapping[np.argmax(P_cls[0, ii, :])]
                 if cls_name not in bboxes:
@@ -1910,13 +1916,14 @@ def doPredict(C, model_rpn, model_classifier, img):
             (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
             if all_dets.get(key, None) == None :
                 all_dets[key] = []
-            all_dets[key].append([key, new_probs[jk], real_x1, real_y1, real_x2, real_y2])
+            all_dets[key].append([int(key), float(new_probs[jk]), int(real_x1), int(real_y1), int(real_x2), int(real_y2)])
 
     del img
+    all_dets['time'] = time.time() - st
     print('Elapsed time = {}'.format(time.time() - st))
     print(all_dets)
     return all_dets
 
 
 
-testALL(model="MCRCNN", verbose=False)
+# testALL(model="MCRCNN", verbose=False)
