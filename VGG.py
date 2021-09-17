@@ -14,6 +14,7 @@ from keras import initializers, regularizers
 
 
 
+
 def nn_base(input_tensor=None, trainable=False):
     
 
@@ -50,7 +51,7 @@ def nn_base(input_tensor=None, trainable=False):
     x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv2')(x)
     x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv3')(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
-
+    
     # Block 5
     x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv1')(x)
     x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv2')(x)

@@ -41,7 +41,10 @@ from RPN import rpn_layer
 from Iou import intersection, union, iou
 from Loss import class_loss_cls, class_loss_regr, rpn_loss_cls, rpn_loss_regr
 from Classifier import classifier_layer
-from MCFE import DecoupledClassifier
+from MCFE import DecoupledClassifier, MCFE
+
+import seaborn as sns
+sns.set_theme()
 
 
 
@@ -1723,7 +1726,9 @@ def testALL(model="MRCNN", verbose=False):
         # Y1: y_rpn_cls
         # Y2: y_rpn_regr
         # [Y1, Y2, F] = model_rpn.predict(X)
+        timeRpn = time.time();
         [Y1, Y2, F] = model_rpn.predict(X)
+        timeRpn = time.time() - timeRpn;
         # Get bboxes by applying NMS 
         # R.shape = (100, 4)
         print(Y1.shape)
@@ -1741,6 +1746,7 @@ def testALL(model="MRCNN", verbose=False):
         # apply the spatial pyramid pooling to the proposed regions
         bboxes = {}
         probs = {}
+        timeCls = time.time();
         for jk in range(R.shape[0]//C.num_rois + 1):
             ROIs = np.expand_dims(R[C.num_rois*jk:C.num_rois*(jk+1), :], axis=0)
             if ROIs.shape[1] == 0:
@@ -1782,7 +1788,7 @@ def testALL(model="MRCNN", verbose=False):
                     pass
                 bboxes[cls_name].append([C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)])
                 probs[cls_name].append(np.max(P_cls[0, ii, :]))
-        
+        timeCls = time.time() - timeCls;
 
 
         for key in bboxes:
@@ -1797,7 +1803,7 @@ def testALL(model="MRCNN", verbose=False):
                 (real_x1, real_y1, real_x2, real_y2) = get_real_coordinates(ratio, x1, y1, x2, y2)
                 if all_dets.get(key, None) == None :
                     all_dets[key] = []
-                all_dets[key].append([key,indexImage,new_probs[jk],real_x1, real_y1, real_x2, real_y2])
+                all_dets[key].append([key,indexImage,new_probs[jk],real_x1, real_y1, real_x2, real_y2, timeRpn, timeCls])
                 if verbose:
                     print((real_x1, real_y1), (real_x2, real_y2))
                     cv2.rectangle(img, (real_x1, real_y1), (real_x2, real_y2), (255,255,0), 2)
@@ -1925,5 +1931,7 @@ def doPredict(C, model_rpn, model_classifier, img):
     return all_dets
 
 
+    
 
-# testALL(model="MCRCNN", verbose=False)
+if __name__ == "__main__":
+    testALL(model="MCRCNN", verbose=True)

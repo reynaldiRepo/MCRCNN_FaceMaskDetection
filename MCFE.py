@@ -49,6 +49,7 @@ def DecoupledClassifier(base_layers, input_rois, num_rois, nb_classes = 4):
     # out_roi_pool.shape = (1, num_rois, channels, pool_size, pool_size)
     # num_rois (4) 7x7 roi pooling
     out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([MCFE_LAYER, input_rois])
+    
     flatten = TimeDistributed(Flatten(name='flatten'))(out_roi_pool)
     
     # Branch dense layer for classifier

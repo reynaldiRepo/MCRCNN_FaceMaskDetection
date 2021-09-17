@@ -53,4 +53,6 @@ def handle_input(data):
        print(e)
        return 0
 
-socketio.run(app)
+
+if __name__ == "__main__":
+   socketio.run(app)

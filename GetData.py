@@ -30,23 +30,6 @@ def createDataset(max_per_class = 0):
     Aflw = json.load(fs)
     fs.close()
     
-    # Make sure the info saved in annotation file matching the format (path_filename, x1, y1, x2, y2, class_name)
-    # Note:
-    #	One path_filename might has several classes (class_name)
-    #	x1, y1, x2, y2 are the pixel value of the origial image, not the ratio value
-    #	(x1, y1) top left coordinates; (x2, y2) bottom right coordinates
-    #   x1,y1-------------------
-    #	|						|
-    #	|						|
-    #	|						|
-    #	|						|
-    #	---------------------x2,y2
-    
-    # class note :
-    # 1 - maskedface
-    # 2 - incorrect maskedface
-    # 3 - non maske
-    
     indexClass = 0;
     
     state = "MAFA"
@@ -293,3 +276,5 @@ def createTest(numTrain = 2000, numTest = 200):
     json_file.close()
     print("finish")
     
+
+# createTest(numTrain = 2000, numTest = 1000)

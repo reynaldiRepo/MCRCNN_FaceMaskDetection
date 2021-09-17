@@ -1,4 +1,4 @@
-import imp
+
 import io
 import os
 from re import T
@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import cv2
 from numpy.core.defchararray import index
 from numpy.lib.function_base import append
+from tensorflow.python.keras.layers.merge import average
 from Iou import iou
 from scipy.interpolate import interp1d
 
@@ -16,13 +17,13 @@ np.set_printoptions(suppress=True)
 def evaluate(model="MCRCNN"):
     
     test_class_0,test_class_1,test_class_2 = None,None,None
-    with open(os.path.join(os.getcwd(), "npy", "test_result_0.npy"), "rb") as f:
+    with open(os.path.join(os.getcwd(), "npy", "test_result_RCNN_0.npy"), "rb") as f:
         test_class_0 = np.load(f)
     f.close()
-    with open(os.path.join(os.getcwd(), "npy", "test_result_1.npy"), "rb") as f:
+    with open(os.path.join(os.getcwd(), "npy", "test_result_RCNN_1.npy"), "rb") as f:
         test_class_1 = np.load(f)
     f.close()
-    with open(os.path.join(os.getcwd(), "npy", "test_result_2.npy"), "rb") as f:
+    with open(os.path.join(os.getcwd(), "npy", "test_result_RCNN_2.npy"), "rb") as f:
         test_class_2 = np.load(f)
     f.close()
     print(test_class_0.shape, test_class_1.shape, test_class_2.shape)
@@ -40,10 +41,10 @@ def evaluate(model="MCRCNN"):
 
     #calculate map:
     treshold = 0.5
-    numTPall = 200;#define on create test case
+    numTPall = 1000;#define on create test case
     index_class = 0
     for test in (test_class_0,test_class_1,test_class_2):
-        csv = open(os.path.join(os.getcwd(), "evaluate", "MCRCNN_class_"+str(index_class)+"_map.csv"), "w")
+        csv = open(os.path.join(os.getcwd(), "evaluate", "RCNN_class_"+str(index_class)+"_map.csv"), "w")
         csv.write("rank,image,confidence,tp,fp,acc_tp,acc_fp,precision,recall\n")
         acc_tp = 0
         acc_fp = 0
@@ -90,11 +91,12 @@ def evaluate(model="MCRCNN"):
         index_class += 1
         
 def showcurve():
-    eval_clas_0 = open(os.path.join(os.getcwd(), "evaluate", "MCRCNN_class_0_map.csv"))
-    eval_clas_1 = open(os.path.join(os.getcwd(), "evaluate", "MCRCNN_class_1_map.csv"))
-    eval_clas_2 = open(os.path.join(os.getcwd(), "evaluate", "MCRCNN_class_2_map.csv"))
+    eval_clas_0 = open(os.path.join(os.getcwd(), "evaluate", "RCNN_class_0_map.csv"))
+    eval_clas_1 = open(os.path.join(os.getcwd(), "evaluate", "RCNN_class_1_map.csv"))
+    eval_clas_2 = open(os.path.join(os.getcwd(), "evaluate", "RCNN_class_2_map.csv"))
     
     index_class = 0
+    mAP = 0
     for csv in (eval_clas_0, eval_clas_1, eval_clas_2):
         row = csv.readlines()[1:]
         arrayprec = []
@@ -134,16 +136,66 @@ def showcurve():
                 print("AP", N+1 ,"= ("+str(array_recall[N+1])+" - "+str(array_recall[N])+")"+" * "+str(array_preccision_smooth[N]),"=",APval)
                 AP.append(APval)
         print("AP = ", sum(AP))
+        mAP += sum(AP);
 
-        
+        classMapping = {0:"No mask", 1:"Correct mask", 2:"incorrect mask"}    
         plt.plot(arrayrecc, arrayprec, '--b')  
         plt.plot(arrayrecc, decreasing_max_precision, '-r')  
-        plt.title("Curva Class "+str(index_class))
+        plt.title("Curva Class "+ classMapping[index_class])
         plt.xlabel("reccal")
         plt.ylabel("precision")
         plt.show()
         # break;
         index_class += 1
+    print("mAP = " ,mAP/index_class)
+
+
+def timelinelog():
+    test_class_0,test_class_1,test_class_2 = None,None,None
+    with open(os.path.join(os.getcwd(), "npy", "test_result_RCNN_0.npy"), "rb") as f:
+        test_class_0 = np.load(f)
+    f.close()
+    with open(os.path.join(os.getcwd(), "npy", "test_result_RCNN_1.npy"), "rb") as f:
+        test_class_1 = np.load(f)
+    f.close()
+    with open(os.path.join(os.getcwd(), "npy", "test_result_RCNN_2.npy"), "rb") as f:
+        test_class_2 = np.load(f)
+    f.close()
+    
+    x = [];
+    y = [];
+    y1 = [];
+    index = 0;
+    for test in (test_class_0,test_class_1,test_class_2):
+        for r in test:
+            if index > 2731:
+                continue;
+            if index % 2 != 0 or index < 2:
+                index += 1
+                continue;
+            else :
+                x.append(index)
+                y.append(r[7])
+                y1.append(r[8])
+                index += 1
+
+    print((sum(y)) / len(y))
+    print((sum(y1)) / len(y1))
+
+    x = np.array(x)
+    y = np.array(y)
+    y1= np.array(y1)
+    plt.plot(x, y1, '--b', label = 'Classifier & Regression Proccess (fc)')  
+    plt.plot(x, y, '--r', label="RPN")  
+    plt.title("Timeline waktu proses testing Faster R-CNN")
+    plt.xlabel("image-n")
+    plt.ylabel("Time(s)")
+    plt.grid()
+    plt.legend()
+    plt.show()
+
+# evaluate()
 
 showcurve()
     
+# timelinelog()
